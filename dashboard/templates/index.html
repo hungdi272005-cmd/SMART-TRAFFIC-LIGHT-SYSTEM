@@ -3,24 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Traffic Light - Nhóm 11</title>
+    <title>Smart Traffic Light - Trung Tâm Điều Hành Giao Thông</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Thư viện Chart.js vẽ biểu đồ thời gian thực -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="header">
         <div>
-            <h1>HỆ THỐNG ĐÈN GIAO THÔNG THÍCH ỨNG (AI & IoT)</h1>
-            <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Đề tài Nhóm 11 - Giám sát & Điều khiển Thời gian thực</p>
+            <h1>TRUNG TÂM ĐIỀU HÀNH GIAO THÔNG THÍCH ỨNG (AI & IoT)</h1>
+            <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Đề tài Nhóm 11 - Giám sát & Quản lý Cơ sở dữ liệu SQLite</p>
         </div>
-        <div id="mqtt-badge" class="badge badge-offline">MQTT: ĐANG KẾT NỐI...</div>
+        <div class="header-right">
+            <span id="db-badge" class="badge badge-db">DATABASE: SQLITE ACTIVE</span>
+            <span id="mqtt-badge" class="badge badge-offline">MQTT: ĐANG KẾT NỐI...</span>
+        </div>
     </div>
 
+    <!-- 1. CÁC THẺ TRẠNG THÁI PHA GIAO THÔNG HIỆN TẠI -->
     <div class="grid">
         <!-- TRỤC 1: BẮC - NAM -->
         <div class="card card-1">
             <div class="card-header">
                 <span>TRỤC 1: BẮC - NAM</span>
-                <span style="color: #f97316;">PHA 1</span>
+                <span class="phase-tag phase-1">PHA 1</span>
             </div>
             <div class="stat">
                 <span>Số lượng phương tiện (N1):</span>
@@ -40,7 +46,7 @@
         <div class="card card-2">
             <div class="card-header">
                 <span>TRỤC 2: ĐÔNG - TÂY</span>
-                <span style="color: #0284c7;">PHA 2</span>
+                <span class="phase-tag phase-2">PHA 2</span>
             </div>
             <div class="stat">
                 <span>Số lượng phương tiện (N2):</span>
@@ -57,14 +63,70 @@
         </div>
     </div>
 
-    <!-- BẢNG ĐIỀU KHIỂN GHI ĐÈ KHẨN CẤP -->
+    <!-- 2. BIỂU ĐỒ LƯU LƯỢNG XE THỜI GIAN THỰC (DATABASE TIME-SERIES) -->
+    <div class="card" style="margin-bottom: 25px;">
+        <div class="card-header">
+            <span>BIỂU ĐỒ DIỄN BIẾN MẬT ĐỘ PHƯƠNG TIỆN THEO THỜI GIAN (DATABASE REAL-TIME)</span>
+            <span style="color: #94a3b8; font-size: 13px;">Lưu log tự động mỗi 2 giây</span>
+        </div>
+        <div style="height: 250px; position: relative;">
+            <canvas id="trafficChart"></canvas>
+        </div>
+    </div>
+
+    <!-- 3. THỐNG KÊ TỔNG QUAN CƠ SỞ DỮ LIỆU -->
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="stat-num" id="total-logs">0</div>
+            <div class="stat-label">Tổng bản ghi Log DB</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num val-orange" id="avg-n1">0</div>
+            <div class="stat-label">Số xe TB Trục 1 (Bắc - Nam)</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num val-blue" id="avg-n2">0</div>
+            <div class="stat-label">Số xe TB Trục 2 (Đông - Tây)</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num val-green" id="max-vehicles">0 xe</div>
+            <div class="stat-label">Đỉnh điểm ùn tắc ghi nhận</div>
+        </div>
+    </div>
+
+    <!-- 4. BẢNG ĐIỀU KHIỂN GHI ĐÈ KHẨN CẤP -->
     <div class="control-panel">
-        <h3>GHI ĐÈ CHẾ ĐỘ ĐIỀU KHIỂN TỪ XA (EMERGENCY OVERRIDE)</h3>
-        <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Ưu tiên xe cứu thương / xe cảnh sát hoặc chuyển về tự động thích ứng AI.</p>
+        <h3>GHI ĐÈ ĐIỀU KHIỂN KHẨN CẤP (EMERGENCY OVERRIDE)</h3>
+        <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Cho phép điều phối viên can thiệp trực tiếp từ xa (nhường đường cứu thương / cảnh sát).</p>
         <div class="btn-group">
             <button class="btn-auto" onclick="setMode('AUTO')">Chế độ Tự động thích ứng (AI)</button>
-            <button class="btn-p1" onclick="setMode('EMERGENCY_P1')">Ưu tiên Trục 1 (Cứu thương)</button>
-            <button class="btn-p2" onclick="setMode('EMERGENCY_P2')">Ưu tiên Trục 2 (Cứu hỏa)</button>
+            <button class="btn-p1" onclick="setMode('EMERGENCY_P1')">Ưu tiên Trục 1 (Cứu thương 40s)</button>
+            <button class="btn-p2" onclick="setMode('EMERGENCY_P2')">Ưu tiên Trục 2 (Cứu hỏa 40s)</button>
+        </div>
+    </div>
+
+    <!-- 5. BẢNG DỮ LIỆU LỊCH SỬ TỪ SQLITE -->
+    <div class="card" style="margin-top: 25px;">
+        <div class="card-header">
+            <span>NHẬT KÝ LỊCH SỬ GIAO THÔNG (SQLITE LOGS - 10 BẢN GHI GẦN NHẤT)</span>
+            <span style="color: #38bdf8; font-size: 13px;">traffic_history.db</span>
+        </div>
+        <div class="table-container">
+            <table class="db-table">
+                <thead>
+                    <tr>
+                        <th>Thời Gian</th>
+                        <th>Trục 1 (N1)</th>
+                        <th>Trục 2 (N2)</th>
+                        <th>TG Xanh P1</th>
+                        <th>TG Xanh P2</th>
+                        <th>Chế Độ</th>
+                    </tr>
+                </thead>
+                <tbody id="db-table-body">
+                    <tr><td colspan="6" style="text-align: center; color: #64748b;">Đang tải dữ liệu từ SQLite...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 

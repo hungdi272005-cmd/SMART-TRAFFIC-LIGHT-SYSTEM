@@ -1,9 +1,16 @@
 import cv2
 import json
 import os
+import sys
 import time
 from collections import deque
 import numpy as np
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import paho.mqtt.client as mqtt
 from ultralytics import YOLO
 
@@ -110,9 +117,8 @@ t_default = config.get("traffic_timing", {}).get("t_default", 15)
 # Hạ ngưỡng tin cậy xuống 0.08 để bắt nhạy toàn bộ xe đồ chơi nhỏ/khuất
 conf_thresh = 0.08
 
-# Mở rộng các nhãn nhận diện: car(2), motorcycle(3), bus(5), truck(7), 
-# cùng các nhãn vật thể nhỏ hình hộp: suitcase(28), skateboard(36), mouse(64), remote(65), cell phone(67)
-VEHICLE_CLASSES = [2, 3, 5, 7, 28, 36, 64, 65, 67]
+# Các lớp ngoại trừ (người/bàn tay, trụ đèn, vật dụng lớn ngoài sa bàn)
+EXCLUDED_CLASSES = {0, 9, 59, 60, 62, 63, 76}
 
 cv2.namedWindow("SMART TRAFFIC SYSTEM - AI CONTROLLER", cv2.WINDOW_NORMAL)
 cv2.resizeWindow("SMART TRAFFIC SYSTEM - AI CONTROLLER", 1100, 620)
@@ -134,8 +140,8 @@ while True:
         if not ret:
             break
 
-    # Chạy YOLOv8 với imgsz=1280 để bắt nét các xe đồ chơi siêu nhỏ ở xa
-    results = model(frame, imgsz=1280, conf=conf_thresh, classes=VEHICLE_CLASSES, verbose=False)
+    # Chạy YOLOv8 với imgsz=1280 và agnostic_nms=True để hợp nhất các hộp nhận diện trùng lặp
+    results = model(frame, imgsz=1280, conf=conf_thresh, agnostic_nms=True, verbose=False)
 
     raw_count_1 = 0
     raw_count_2 = 0
@@ -153,23 +159,44 @@ while True:
     # Đếm xe theo từng ROI
     boxes = results[0].boxes
     for box in boxes:
+        cls_id = int(box.cls[0])
+        if cls_id in EXCLUDED_CLASSES:
+            continue
+
         x1, y1, x2, y2 = map(int, box.xyxy[0])
+        box_w = x2 - x1
+        box_h = y2 - y1
+        area = box_w * box_h
+
+        # Lọc theo kích thước thực tế của xe đồ chơi tỷ lệ 1:64 trên khung hình 1280x720
+        # Loại bỏ các vết nhiễu quá nhỏ (< 300 px) hoặc vật thể quá to (> 25000 px)
+        if area < 300 or area > 25000:
+            continue
+
         cx = int((x1 + x2) / 2)
         cy = int((y1 + y2) / 2)
+        base_y = int(y2 - 5)  # Điểm tiếp đất chân bánh xe
 
-        in_roi1 = cv2.pointPolygonTest(pts_roi1, (cx, cy), False) >= 0
-        in_roi2 = cv2.pointPolygonTest(pts_roi2, (cx, cy), False) >= 0
+        in_roi1 = (cv2.pointPolygonTest(pts_roi1, (cx, cy), False) >= 0 or 
+                   cv2.pointPolygonTest(pts_roi1, (cx, base_y), False) >= 0)
+        in_roi2 = (cv2.pointPolygonTest(pts_roi2, (cx, cy), False) >= 0 or 
+                   cv2.pointPolygonTest(pts_roi2, (cx, base_y), False) >= 0)
 
-        color = (200, 200, 200)
+        conf = float(box.conf[0])
         if in_roi1:
             raw_count_1 += 1
             color = (0, 140, 255)
+            cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 2)
+            cv2.circle(display_frame, (cx, cy), 4, (0, 0, 255), -1)
+            cv2.putText(display_frame, f"Xe {int(conf*100)}%", (x1, max(15, y1 - 6)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
         elif in_roi2:
             raw_count_2 += 1
             color = (255, 180, 0)
-
-        cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 2)
-        cv2.circle(display_frame, (cx, cy), 4, (0, 0, 255), -1)
+            cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 2)
+            cv2.circle(display_frame, (cx, cy), 4, (0, 0, 255), -1)
+            cv2.putText(display_frame, f"Xe {int(conf*100)}%", (x1, max(15, y1 - 6)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
 
     # Moving Average
     lane1_history.append(raw_count_1)

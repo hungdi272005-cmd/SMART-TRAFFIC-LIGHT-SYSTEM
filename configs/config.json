@@ -1,0 +1,24 @@
+{
+  "camera": {
+    "source": "http://192.168.0.101:4747/video",
+    "source_note": "Nguồn DroidCam từ iPhone của bạn",
+    "width": 1280,
+    "height": 720
+  },
+  "mqtt": {
+    "broker": "localhost",
+    "port": 1883,
+    "topic_timing": "traffic/sa_ban/timing",
+    "topic_status": "traffic/sa_ban/status"
+  },
+  "traffic_timing": {
+    "t_min": 10,
+    "t_max": 35,
+    "t_yellow": 3,
+    "t_default": 15
+  },
+  "ai": {
+    "confidence_threshold": 0.08,
+    "moving_average_frames": 30
+  }
+}

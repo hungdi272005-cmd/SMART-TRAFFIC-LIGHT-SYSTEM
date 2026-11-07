@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Light - Nhóm 11</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>HỆ THỐNG ĐÈN GIAO THÔNG THÍCH ỨNG (AI & IoT)</h1>
+            <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Đề tài Nhóm 11 - Giám sát & Điều khiển Thời gian thực</p>
+        </div>
+        <div id="mqtt-badge" class="badge badge-offline">MQTT: ĐANG KẾT NỐI...</div>
+    </div>
+
+    <div class="grid">
+        <!-- TRỤC 1: BẮC - NAM -->
+        <div class="card card-1">
+            <div class="card-header">
+                <span>TRỤC 1: BẮC - NAM</span>
+                <span style="color: #f97316;">PHA 1</span>
+            </div>
+            <div class="stat">
+                <span>Số lượng phương tiện (N1):</span>
+                <span id="n1-val" class="stat-val val-orange">-- xe</span>
+            </div>
+            <div class="stat">
+                <span>Thời gian Đèn Xanh (T_green1):</span>
+                <span id="green1-val" class="stat-val val-green">-- giây</span>
+            </div>
+            <div class="stat">
+                <span>Trạng thái người đi bộ:</span>
+                <span style="color: #94a3b8;">Xanh khi xe Đỏ</span>
+            </div>
+        </div>
+
+        <!-- TRỤC 2: ĐÔNG - TÂY -->
+        <div class="card card-2">
+            <div class="card-header">
+                <span>TRỤC 2: ĐÔNG - TÂY</span>
+                <span style="color: #0284c7;">PHA 2</span>
+            </div>
+            <div class="stat">
+                <span>Số lượng phương tiện (N2):</span>
+                <span id="n2-val" class="stat-val val-blue">-- xe</span>
+            </div>
+            <div class="stat">
+                <span>Thời gian Đèn Xanh (T_green2):</span>
+                <span id="green2-val" class="stat-val val-green">-- giây</span>
+            </div>
+            <div class="stat">
+                <span>Trạng thái người đi bộ:</span>
+                <span style="color: #94a3b8;">Xanh khi xe Đỏ</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG ĐIỀU KHIỂN GHI ĐÈ KHẨN CẤP -->
+    <div class="control-panel">
+        <h3>GHI ĐÈ CHẾ ĐỘ ĐIỀU KHIỂN TỪ XA (EMERGENCY OVERRIDE)</h3>
+        <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Ưu tiên xe cứu thương / xe cảnh sát hoặc chuyển về tự động thích ứng AI.</p>
+        <div class="btn-group">
+            <button class="btn-auto" onclick="setMode('AUTO')">Chế độ Tự động thích ứng (AI)</button>
+            <button class="btn-p1" onclick="setMode('EMERGENCY_P1')">Ưu tiên Trục 1 (Cứu thương)</button>
+            <button class="btn-p2" onclick="setMode('EMERGENCY_P2')">Ưu tiên Trục 2 (Cứu hỏa)</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
